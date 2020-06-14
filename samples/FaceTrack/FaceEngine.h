@@ -164,9 +164,9 @@ class FaceEngine {
   FaceEngine() {
     batchSize = 1;
     bStabilizeFace = true;
-    appMode = faceMeshGeneration;
-    input_image_width = 640;
-    input_image_height = 480;
+    appMode = faceDetection;
+    input_image_width = 1280;
+    input_image_height = 720;
     input_image_pitch = 3 * input_image_width * sizeof(unsigned char);  // RGB
   }
   enum mode { faceDetection = 0, landmarkDetection, faceMeshGeneration } appMode;
