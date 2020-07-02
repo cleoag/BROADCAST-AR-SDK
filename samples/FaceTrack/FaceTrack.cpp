@@ -62,8 +62,8 @@
  * Command-line arguments
  ********************************************************************************/
 
-bool FLAG_debug = false, FLAG_verbose = false, FLAG_temporal = true, FLAG_captureOutputs = false,
-     FLAG_offlineMode = false;
+bool FLAG_debug = true, FLAG_verbose = false, FLAG_temporal = true, FLAG_captureOutputs = true,
+     FLAG_offlineMode = true;
 std::string FLAG_outDir, FLAG_inFile, FLAG_outFile, FLAG_modelPath, FLAG_landmarks, FLAG_proxyWireframe,
     FLAG_captureCodec = "avc1", FLAG_camRes;
 unsigned int FLAG_batch = 1;
@@ -194,12 +194,12 @@ static int ParseMyArgs(int argc, char **argv) {
         if (*arg == 'v') {
           FLAG_verbose = true;
         } else {
-          // printf("Unknown flag: \"-%c\"\n", *arg);
+           printf("Unknown flag: \"-%c\"\n", *arg);
         }
       }
       continue;
     } else {
-      // printf("Unknown flag: \"%s\"\n", arg);
+       printf("Unknown flag: \"%s\"\n", arg);
     }
   }
   return errs;
@@ -245,6 +245,7 @@ std::string getCalendarTime() {
       std::chrono::duration_cast<std::chrono::milliseconds>(currentTimePoint.time_since_epoch()) % 1000;
   // Append the milliseconds to the stream
   calendarTime << "-" << std::setfill('0') << std::setw(3) << currentMilliseconds.count();  // milliseconds
+  printf("getCalendarTime: \"%s\"\n", calendarTime.str());
   return calendarTime.str();
 }
 
@@ -468,9 +469,9 @@ void DoApp::writeVideoAndEstResults(const cv::Mat &frame, NvAR_BBoxes output_bbo
         return;
       }
       std::string landmarkDetectionMode = (landmarks == NULL) ? "Off" : "On";
-      faceEngineVideoOutputFile << "// FaceDetectOn, LandmarkDetect" << landmarkDetectionMode << "\n ";
-      faceEngineVideoOutputFile
-          << "// kNumFaces, (bbox_x, bbox_y, bbox_w, bbox_h){ kNumFaces}, kNumLMs, [lm_x, lm_y]{kNumLMs}\n";
+      //faceEngineVideoOutputFile << "// FaceDetectOn, LandmarkDetect" << landmarkDetectionMode << "\n ";
+      //faceEngineVideoOutputFile
+      //    << "// kNumFaces, (bbox_x, bbox_y, bbox_w, bbox_h){ kNumFaces}, kNumLMs, [lm_x, lm_y]{kNumLMs}\n";
     }
     // Write each frame to the Video
     capturedVideo << frame;
@@ -502,6 +503,8 @@ void DoApp::writeEstResults(std::ofstream &outputFile, NvAR_BBoxes output_bboxes
                           face_ar_engine.appMode == FaceEngine::mode::faceMeshGeneration)
                              ? 1
                              : 0;
+
+  /*
   outputFile << faceDetectOn << "," << landmarkDetectOn << "\n";
 
   if (faceDetectOn && output_bboxes.num_boxes) {
@@ -526,7 +529,16 @@ void DoApp::writeEstResults(std::ofstream &outputFile, NvAR_BBoxes output_bboxes
   } else {
     outputFile << "0,";
   }
+  */
 
+  NvAR_Quaternion* pose = face_ar_engine.getPose();
+  NvAR_RenderingParams* rp = face_ar_engine.getRenderingParams();
+
+
+  outputFile << pose->x << "," << pose->y << "," << pose->z << "," << pose->w << ";";
+  outputFile << rp->frustum.left << "," << rp->frustum.right << "," << rp->frustum.bottom << "," << rp->frustum.top << ";";
+  outputFile << rp->rotation.x << "," << rp->rotation.y << "," << rp->rotation.z << "," << rp->rotation.w << ";";
+  outputFile << rp->translation.vec[0] << "," << rp->translation.vec[1] << "," << rp->translation.vec[2] << ";";
   outputFile << "\n";
 }
 
@@ -688,7 +700,7 @@ DoApp::Err DoApp::acquireFaceBoxAndLandmarks() {
 }
 
 DoApp::Err DoApp::initCamera(const char *camRes) {
-  if (cap.open(0)) {
+  if (cap.open(0, CV_CAP_DSHOW)) {
     if (camRes) {
       int n;
       n = sscanf(camRes, "%d%*[xX]%d", &inputWidth, &inputHeight);
@@ -706,6 +718,8 @@ DoApp::Err DoApp::initCamera(const char *camRes) {
       }
       if (inputWidth) cap.set(CV_CAP_PROP_FRAME_WIDTH, inputWidth);
       if (inputHeight) cap.set(CV_CAP_PROP_FRAME_HEIGHT, inputHeight);
+
+      cap.set(CV_CAP_PROP_FPS, 30);
 
       inputWidth = cap.get(CV_CAP_PROP_FRAME_WIDTH);
       inputHeight = cap.get(CV_CAP_PROP_FRAME_HEIGHT);
@@ -784,7 +798,7 @@ DoApp::DoApp() {
   gApp = this;
   drawVisualization = true;
   showFPS = false;
-  captureVideo = false;
+  captureVideo = true;
   captureFrame = false;
   frameTime = 0;
   frameIndex = 0;
@@ -952,7 +966,7 @@ int main(int argc, char **argv) {
     }
     app.initOfflineMode(FLAG_inFile.c_str(), FLAG_outFile.c_str());
   } else {
-    app.initCamera(FLAG_camRes.c_str());
+      app.initCamera("1280x720");// FLAG_camRes.c_str());
   }
   doErr = app.initFaceEngine(FLAG_modelPath.c_str());
   if (DoApp::errNone != doErr) {

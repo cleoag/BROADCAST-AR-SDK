@@ -272,8 +272,13 @@ FaceEngine::Err FaceEngine::initFaceFittingIOParams(NvCVImage* inputImageBuffer)
   BAIL_IF_CVERR(nvErr, err, FaceEngine::Err::errInitialization);
 
   facial_landmarks.assign(batchSize * OUTPUT_SIZE_KPTS, {0.f, 0.f});
+  facial_pose.assign(batchSize, { 0.f, 0.f, 0.f, 0.f });
   nvErr =
       NvAR_SetObject(faceFitHandle, NvAR_Parameter_Output(Landmarks), facial_landmarks.data(), sizeof(NvAR_Point2f));
+  BAIL_IF_CVERR(nvErr, err, FaceEngine::Err::errInitialization);
+
+  nvErr =
+      NvAR_SetObject(faceFitHandle, NvAR_Parameter_Output(Pose), facial_pose.data(), sizeof(NvAR_Quaternion));
   BAIL_IF_CVERR(nvErr, err, FaceEngine::Err::errInitialization);
 
   facial_landmarks_confidence.assign(batchSize * OUTPUT_SIZE_KPTS, 0.f);
