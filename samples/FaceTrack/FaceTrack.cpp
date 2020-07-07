@@ -514,7 +514,7 @@ const char *DoApp::errorStringFromCode(DoApp::Err code) {
 
   }
 
-  extern "C" void __declspec(dllexport) __stdcall _UpdateFaceMesh(NvAR_Vector3f * unity_vertices, int vertices_size, NvAR_Vector3u16* unity_triangles, int triangles_size)
+  extern "C" void __declspec(dllexport) __stdcall _UpdateFaceMesh(NvAR_Vector3f * unity_vertices, int vertices_size, NvAR_Vector3u16* unity_triangles, int triangles_size, NvAR_Quaternion* unity_pose)
   {
 
       NvAR_FaceMesh* faceMesh = app.face_ar_engine.getFaceMesh();
@@ -535,7 +535,9 @@ const char *DoApp::errorStringFromCode(DoApp::Err code) {
         unity_triangles[i].vec[0] = faceMesh->tvi[i].vec[0];
         unity_triangles[i].vec[1] = faceMesh->tvi[i].vec[1];
         unity_triangles[i].vec[2] = faceMesh->tvi[i].vec[2];
+   
     }
+    std::memcpy(unity_pose, app.face_ar_engine.getPose(), sizeof(struct NvAR_Quaternion));
   }
   extern "C" void __declspec(dllexport) __stdcall _UpdateRenderingParams(NvAR_RenderingParams * unity_rp)
   {
