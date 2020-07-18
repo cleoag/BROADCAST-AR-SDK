@@ -51,27 +51,7 @@ bool CheckResult(NvCV_Status nvErr, unsigned line) {
   return false;
 }
 
-FaceEngine::Err FaceEngine::fitFaceModel(cv::Mat& frame) {
-  FaceEngine::Err err = FaceEngine::Err::errNone;
-  NvCV_Status nvErr;
-  if (!frame.empty()) {
-    NvCVImage fxSrcChunkyCPU;
-    (void)NVWrapperForCVMat(&frame, &fxSrcChunkyCPU);
-    NvCV_Status cvErr = NvCVImage_Transfer(&fxSrcChunkyCPU, &inputImageBuffer, 1.0f, stream, NULL);
 
-    if (NVCV_SUCCESS != cvErr) {
-      return errRun;
-    }
-  }
-
-  nvErr = NvAR_Run(faceFitHandle);
-  BAIL_IF_CVERR(nvErr, err, FaceEngine::Err::errRun);
-
-  if (getAverageLandmarksConfidence() < LANDMARK_CONF_THRESH) return FaceEngine::Err::errRun;
-
-bail:
-  return err;
-}
 
 NvAR_FaceMesh* FaceEngine::getFaceMesh() { return face_mesh; }
 
@@ -86,7 +66,7 @@ FaceEngine::Err FaceEngine::createFeatures(const char* modelPath, unsigned int _
   else if (appMode == landmarkDetection)
     err = createLandmarkDetectionFeature(modelPath, _batchSize, stream);
   else if (appMode == faceMeshGeneration)
-    err = createFaceFittingFeature(modelPath, stream);
+    err = createFaceFittingFeature(modelPath, _batchSize, stream);
   return err;
 }
 
@@ -141,10 +121,11 @@ bail:
   return err;
 }
 
-FaceEngine::Err FaceEngine::createFaceFittingFeature(const char* modelPath, CUstream stream) {
+FaceEngine::Err FaceEngine::createFaceFittingFeature(const char* modelPath, unsigned int _batchSize, CUstream stream) {
   FaceEngine::Err err = FaceEngine::Err::errNone;
   NvCV_Status nvErr;
 
+  batchSize = _batchSize;
   nvErr = NvAR_Create(NvAR_Feature_Face3DReconstruction, &faceFitHandle);
   BAIL_IF_CVERR(nvErr, err, FaceEngine::Err::errInitialization);
 
@@ -153,6 +134,12 @@ FaceEngine::Err FaceEngine::createFaceFittingFeature(const char* modelPath, CUst
 
   nvErr = NvAR_SetCudaStream(faceFitHandle, NvAR_Parameter_Config(CUDAStream), stream);
   BAIL_IF_CVERR(nvErr, err, FaceEngine::Err::errInitialization);
+
+  //nvErr = NvAR_SetU32(faceFitHandle, NvAR_Parameter_Config(BatchSize), batchSize);
+  //BAIL_IF_CVERR(nvErr, err, FaceEngine::Err::errInitialization);
+
+  //nvErr = NvAR_SetU32(faceFitHandle, NvAR_Parameter_Config(Temporal), 1);
+  //BAIL_IF_CVERR(nvErr, err, FaceEngine::Err::errInitialization);
 
   nvErr = NvAR_Load(faceFitHandle);
   BAIL_IF_CVERR(nvErr, err, FaceEngine::Err::errInitialization);
@@ -271,6 +258,9 @@ FaceEngine::Err FaceEngine::initFaceFittingIOParams(NvCVImage* inputImageBuffer)
   nvErr = NvAR_GetU32(faceFitHandle, NvAR_Parameter_Config(Landmarks_Size), &OUTPUT_SIZE_KPTS);
   BAIL_IF_CVERR(nvErr, err, FaceEngine::Err::errInitialization);
 
+  nvErr = NvAR_SetU32(faceFitHandle, NvAR_Parameter_Config(Temporal), 1);
+  BAIL_IF_CVERR(nvErr, err, FaceEngine::Err::errInitialization);
+
   facial_landmarks.assign(batchSize * OUTPUT_SIZE_KPTS, {0.f, 0.f});
   facial_pose.assign(batchSize, { 0.f, 0.f, 0.f, 0.f });
   nvErr =
@@ -360,6 +350,7 @@ void FaceEngine::releaseFaceFittingIOParams() {
   if (!output_bbox_data.empty()) output_bbox_data.clear();
   if (!facial_landmarks.empty()) facial_landmarks.clear();
   if (!facial_landmarks_confidence.empty()) facial_landmarks_confidence.clear();
+  if (!facial_pose.empty()) facial_pose.clear();
   NvCVImage_Dealloc(&inputImageBuffer);
   if (rendering_params) {
     delete rendering_params;
@@ -622,6 +613,28 @@ unsigned FaceEngine::acquireFaceBoxAndLandmarks(cv::Mat& src, NvAR_Point2f* refM
   memcpy(refMarks, getLandmarks(), sizeof(NvAR_Point2f) * FaceEngine::NUM_LANDMARKS);
 
   return n;
+}
+
+FaceEngine::Err FaceEngine::fitFaceModel(cv::Mat& frame) {
+    FaceEngine::Err err = FaceEngine::Err::errNone;
+    NvCV_Status nvErr;
+    if (!frame.empty()) {
+        NvCVImage fxSrcChunkyCPU;
+        (void)NVWrapperForCVMat(&frame, &fxSrcChunkyCPU);
+        NvCV_Status cvErr = NvCVImage_Transfer(&fxSrcChunkyCPU, &inputImageBuffer, 1.0f, stream, NULL);
+
+        if (NVCV_SUCCESS != cvErr) {
+            return errRun;
+        }
+    }
+
+    nvErr = NvAR_Run(faceFitHandle);
+    BAIL_IF_CVERR(nvErr, err, FaceEngine::Err::errRun);
+
+    if (getAverageLandmarksConfidence() < LANDMARK_CONF_THRESH) return FaceEngine::Err::errRun;
+    average_poses(getPose(), batchSize);
+bail:
+    return err;
 }
 
 void FaceEngine::setFaceStabilization(bool _bStabilizeFace) { bStabilizeFace = _bStabilizeFace; }

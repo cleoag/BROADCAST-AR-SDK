@@ -111,7 +111,7 @@ class FaceEngine {
   Err createFeatures(const char* modelPath, unsigned int _batchSize = 1);
   Err createFaceDetectionFeature(const char* modelPath, CUstream stream);
   Err createLandmarkDetectionFeature(const char* modelPath, unsigned int batchSize, CUstream stream);
-  Err createFaceFittingFeature(const char* modelPath, CUstream stream);
+  Err createFaceFittingFeature(const char* modelPath, unsigned int batchSize, CUstream stream);
   void destroyFeatures();
   void destroyFaceDetectionFeature();
   void destroyLandmarkDetectionFeature();
@@ -162,7 +162,7 @@ class FaceEngine {
   NvAR_Point2f prevLandmark[NUM_LANDMARKS] = {0};
 
   FaceEngine() {
-    batchSize = 1;
+    batchSize = 8;
     bStabilizeFace = true;
     appMode = faceDetection;
     input_image_width = 1280;

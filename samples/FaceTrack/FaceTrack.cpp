@@ -463,6 +463,11 @@ const char *DoApp::errorStringFromCode(DoApp::Err code) {
       app.setMode(mode);
   }
 
+  extern "C" void __declspec(dllexport) __stdcall _SetBatch(int batchSize)
+  {
+      app.face_ar_engine.batchSize = batchSize;
+  }
+
 
   extern "C" int __declspec(dllexport) __stdcall _UpdateCamera()
   {
